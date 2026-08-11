@@ -1,5 +1,10 @@
 # Intune Scripts
 
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4?logo=windows&logoColor=white)
+![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?logo=powershell&logoColor=white)
+![Intune](https://img.shields.io/badge/Microsoft-Intune-0078D4)
+![License](https://img.shields.io/badge/license-MIT-2ea44f)
+
 A collection of production-ready scripts and packages for managing Windows and macOS devices with **Microsoft Intune**. Scripts are organized by category and each includes full documentation and setup instructions.
 
 ---
@@ -8,14 +13,14 @@ A collection of production-ready scripts and packages for managing Windows and m
 
 ## Categories
 
-### Remediations
+### 🔧 Remediations
 Detection and Remediation script pairs deployed via Intune Remediations.
 
 | Name | Platform | Description |
 |---|---|---|
 | [Remove-iTunes](./Remediations/Remove-iTunes/) | Windows | Detects and silently removes iTunes from Windows devices |
 
-### Scripts
+### 📜 Scripts
 Standalone scripts deployed via Intune Script policies.
 
 | Name | Platform | Description |
@@ -36,7 +41,7 @@ Standalone scripts deployed via Intune Script policies.
 | [Convert-CoManaged-To-Intune](./Scripts/Convert-CoManaged-To-Intune/) | Windows | Converts a co-managed device to Intune-only management |
 | [Uninstall-Classic-Teams](./Scripts/Uninstall-Classic-Teams/) | Windows | Detects and removes classic Microsoft Teams |
 
-### Packages
+### 📦 Packages
 Application packages deployed via Intune Win32 App or DMG/PKG policies.
 
 | Name | Platform | Description |
@@ -45,7 +50,7 @@ Application packages deployed via Intune Win32 App or DMG/PKG policies.
 
 ---
 
-## Author
+## 👤 Author
 
 Saeid Agheli — Intune Administrator
 https://github.com/saeidagheli88
