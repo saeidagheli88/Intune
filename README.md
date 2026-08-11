@@ -4,6 +4,7 @@
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?logo=powershell&logoColor=white)
 ![Intune](https://img.shields.io/badge/Microsoft-Intune-0078D4)
 ![License](https://img.shields.io/badge/license-MIT-2ea44f)
+![Last Commit](https://img.shields.io/github/last-commit/saeidagheli88/Intune?color=8A2BE2)
 
 A collection of production-ready scripts and packages for managing Windows and macOS devices with **Microsoft Intune**. Scripts are organized by category and each includes full documentation and setup instructions.
 
