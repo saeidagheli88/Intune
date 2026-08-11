@@ -9,8 +9,6 @@ A collection of production-ready scripts and packages for managing Windows and m
 
 ---
 
----
-
 ## Categories
 
 ### 🔧 Remediations
@@ -52,5 +50,6 @@ Application packages deployed via Intune Win32 App or DMG/PKG policies.
 
 ## 👤 Author
 
-Saeid Agheli — Intune Administrator
-https://github.com/saeidagheli88
+**Saeid Agheli** — Intune & Jamf Administrator
+
+🌐 [www.saeidagheli.com](https://www.saeidagheli.com) · [GitHub](https://github.com/saeidagheli88)
