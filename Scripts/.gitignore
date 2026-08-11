@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# Claude Code local settings
+.claude/
+
+# Device inventory exports — internal data, keep out of the repo
+*.csv
+*.xlsx

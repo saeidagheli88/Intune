@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows Remove-App Script Generator</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #1a2130; --panel2: #141a28;
+    --border: #2a3448; --text: #e6ebf4; --muted: #8b97ad;
+    --accent: #4da3ff; --green: #34c77b; --code-bg: #0b0f18;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh; padding: 24px;
+  }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .layout { display: grid; grid-template-columns: 420px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+  }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+          text-transform: uppercase; letter-spacing: .05em; margin: 14px 0 5px; }
+  label:first-of-type { margin-top: 0; }
+  .hint { font-size: 11px; color: var(--muted); font-weight: 400; text-transform: none;
+          letter-spacing: 0; margin-top: 3px; }
+  input[type=text], textarea {
+    width: 100%; background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); padding: 9px 11px; font-size: 14px;
+    font-family: inherit;
+  }
+  textarea { font-family: "SF Mono", Menlo, monospace; font-size: 12.5px; resize: vertical; }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  .check { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13.5px; }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .btnrow { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  button {
+    border: none; border-radius: 8px; padding: 10px 18px; font-size: 14px;
+    font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .primary { background: var(--accent); color: #06101f; }
+  .secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  button:hover { filter: brightness(1.12); }
+  .preview-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .filename { font-family: "SF Mono", Menlo, monospace; font-size: 13px; color: var(--green); }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; overflow: auto; max-height: 78vh;
+    font-family: "SF Mono", Menlo, monospace; font-size: 11.5px; line-height: 1.5;
+    white-space: pre; color: #c9d4e6;
+  }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--green); color: #06101f; font-weight: 600; padding: 10px 22px;
+    border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .25s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<h1>Windows Remove-App Script Generator</h1>
+<div class="sub">Type a Windows app's details &rarr; get a ready-to-deploy removal <b>.ps1</b> (Monster house style: SYSTEM, 64-bit, C:\ProgramData\Monster\Logs, exit 0/1). Based on the PatchMyPC Pre-Install / Uninstall-Software pattern.</div>
+
+<div class="layout">
+  <div class="card">
+    <label for="appName">App name (short, for file &amp; log names)</label>
+    <input type="text" id="appName" value="ExampleApp" placeholder="e.g. Webex, 7Zip, GoogleChrome">
+
+    <label for="patterns">DisplayName match pattern(s) — one per line</label>
+    <textarea id="patterns" rows="3" placeholder="e.g. Cisco Webex*">ExampleApp*</textarea>
+    <div class="hint">Matched with -like against Add/Remove Programs DisplayName. Wildcards * allowed. Keep patterns TIGHT — a broad pattern like *App* can match unrelated software.</div>
+
+    <label for="publisher">Publisher filter (optional, recommended)</label>
+    <input type="text" id="publisher" placeholder="e.g. Cisco Systems*  (blank = any publisher)">
+    <div class="hint">Extra safety gate: entry must also match this Publisher.</div>
+
+    <label for="procs">Processes to stop — comma separated (no .exe)</label>
+    <input type="text" id="procs" placeholder="e.g. CiscoWebexStart, WebexHelper">
+
+    <label for="exeArgs">Silent args for EXE uninstallers</label>
+    <input type="text" id="exeArgs" value="/S">
+    <div class="hint">Used only when the entry has no QuietUninstallString. NSIS = /S, Inno = /VERYSILENT /NORESTART, InstallShield = /s</div>
+
+    <label for="folders">Leftover folders to delete — one per line (optional)</label>
+    <textarea id="folders" rows="3" placeholder="e.g. C:\Program Files\ExampleApp&#10;C:\ProgramData\ExampleApp"></textarea>
+    <div class="hint">Each is Test-Path guarded and must be at least 3 path segments deep (the script refuses to delete drive roots or top-level folders).</div>
+
+    <div class="check"><input type="checkbox" id="perUser" checked><span>Also remove per-user installs (loaded HKU hives)</span></div>
+    <div class="check"><input type="checkbox" id="detectToo"><span>Also generate a matching Detect script (for Intune Remediations)</span></div>
+
+    <div class="btnrow">
+      <button class="primary" id="btnGen">Generate</button>
+      <button class="secondary" id="btnCopy">Copy</button>
+      <button class="secondary" id="btnDl">Download .ps1</button>
+      <button class="secondary" id="btnDlDetect" style="display:none">Download Detect .ps1</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="preview-head">
+      <div class="filename" id="fname">Remove-ExampleApp.ps1</div>
+    </div>
+    <pre id="out">Click Generate to build the script…</pre>
+  </div>
+</div>
+
+<div class="toast" id="toast">Copied</div>
+
+<script>
+"use strict";
+
+function psQuote(s) { return "'" + String(s).replace(/'/g, "''") + "'"; }
+function psArray(items) {
+  if (!items.length) return "@()";
+  return "@(" + items.map(psQuote).join(", ") + ")";
+}
+function cleanName(s) { return s.replace(/[^A-Za-z0-9._-]/g, ""); }
+
+function readForm() {
+  const appName = cleanName(document.getElementById("appName").value.trim()) || "App";
+  const patterns = document.getElementById("patterns").value.split("\n").map(s => s.trim()).filter(Boolean);
+  const publisher = document.getElementById("publisher").value.trim();
+  const procs = document.getElementById("procs").value.split(",").map(s => s.trim().replace(/\.exe$/i, "")).filter(Boolean);
+  const exeArgs = document.getElementById("exeArgs").value.trim() || "/S";
+  const folders = document.getElementById("folders").value.split("\n").map(s => s.trim()).filter(Boolean);
+  const perUser = document.getElementById("perUser").checked;
+  const detectToo = document.getElementById("detectToo").checked;
+  return { appName, patterns, publisher, procs, exeArgs, folders, perUser, detectToo };
+}
+
+// ---------------------------------------------------------------- shared PS blocks
+function psCommon(f, scriptName) {
+  return [
+    "$ErrorActionPreference = 'Continue'",
+    "",
+    "#region Config (generated)",
+    "$AppName             = " + psQuote(f.appName),
+    "$DisplayNamePatterns = " + psArray(f.patterns.length ? f.patterns : [f.appName + "*"]),
+    "$PublisherPattern    = " + psQuote(f.publisher),   // '' = any
+    "$ProcessNames        = " + psArray(f.procs),
+    "$ExeSilentArgs       = " + psQuote(f.exeArgs),
+    "$LeftoverFolders     = " + psArray(f.folders),
+    "#endregion",
+    "",
+    "#region Logging",
+    "$LogDir  = 'C:\\ProgramData\\Monster\\Logs'",
+    "$LogFile = Join-Path $LogDir (\"" + scriptName + "_{0:yyyyMMdd-HHmmss}.log\" -f (Get-Date))",
+    "if (-not (Test-Path $LogDir)) { New-Item -Path $LogDir -ItemType Directory -Force | Out-Null }",
+    "function Write-Log {",
+    "    param([string]$Message, [string]$Level = 'INFO')",
+    "    $line = \"{0:yyyy-MM-dd HH:mm:ss} [{1}] {2}\" -f (Get-Date), $Level, $Message",
+    "    Write-Host $line",
+    "    Add-Content -Path $LogFile -Value $line -ErrorAction SilentlyContinue",
+    "}",
+    "#endregion",
+    "",
+    "#region 64-bit relaunch guard",
+    "if ($env:PROCESSOR_ARCHITEW6432 -and $PSCommandPath -and (Test-Path $PSCommandPath)) {",
+    "    $sysnative = Join-Path $env:WINDIR 'Sysnative\\WindowsPowerShell\\v1.0\\powershell.exe'",
+    "    if (Test-Path $sysnative) {",
+    "        Write-Log 'Relaunching in 64-bit PowerShell via Sysnative.'",
+    "        $p = Start-Process -FilePath $sysnative -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',\"`\"$PSCommandPath`\"\") -Wait -PassThru -WindowStyle Hidden",
+    "        exit $p.ExitCode",
+    "    }",
+    "}",
+    "#endregion",
+    "",
+    "#region Registry search helpers",
+    "function Get-MachineUninstallEntries {",
+    "    $results = @()",
+    "    foreach ($view in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {",
+    "        try {",
+    "            $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, $view)",
+    "            $key  = $base.OpenSubKey('SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall')",
+    "            if (-not $key) { continue }",
+    "            foreach ($subName in $key.GetSubKeyNames()) {",
+    "                $sub = $key.OpenSubKey($subName); if (-not $sub) { continue }",
+    "                $dn  = [string]$sub.GetValue('DisplayName')",
+    "                if (-not $dn) { continue }",
+    "                $pub = [string]$sub.GetValue('Publisher')",
+    "                $matched = $false",
+    "                foreach ($pat in $DisplayNamePatterns) { if ($dn -like $pat) { $matched = $true; break } }",
+    "                if (-not $matched) { continue }",
+    "                if ($PublisherPattern -and ($pub -notlike $PublisherPattern)) { continue }",
+    "                $results += [pscustomobject]@{",
+    "                    DisplayName    = $dn",
+    "                    Publisher      = $pub",
+    "                    Version        = [string]$sub.GetValue('DisplayVersion')",
+    "                    UninstallStr   = [string]$sub.GetValue('UninstallString')",
+    "                    QuietUninstall = [string]$sub.GetValue('QuietUninstallString')",
+    "                    InstallLoc     = [string]$sub.GetValue('InstallLocation')",
+    "                    KeyPath        = \"HKLM($view):...\\Uninstall\\$subName\"",
+    "                    RegView        = $view",
+    "                    SubKeyName     = $subName",
+    "                }",
+    "            }",
+    "        } catch { Write-Log \"Registry scan error ($view): $($_.Exception.Message)\" 'WARN' }",
+    "    }",
+    "    return ,$results   # comma prevents empty-collection unrolling to $null",
+    "}",
+    "",
+    "function Get-UserUninstallEntries {",
+    "    # Loaded HKU hives only (logged-on users). Per-user entries are removed",
+    "    # by deleting the ARP key + install folder directly -- running a user's",
+    "    # uninstaller as SYSTEM would target SYSTEM's HKCU, not the user's hive.",
+    "    $results = @()",
+    "    $hku = Get-ChildItem 'Registry::HKEY_USERS' -ErrorAction SilentlyContinue |",
+    "           Where-Object { $_.PSChildName -match '^S-1-5-21-' -and $_.PSChildName -notmatch '_Classes$' }",
+    "    foreach ($hive in $hku) {",
+    "        $ukPath = \"Registry::HKEY_USERS\\$($hive.PSChildName)\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\"",
+    "        if (-not (Test-Path $ukPath)) { continue }",
+    "        foreach ($sub in (Get-ChildItem $ukPath -ErrorAction SilentlyContinue)) {",
+    "            $props = Get-ItemProperty $sub.PSPath -ErrorAction SilentlyContinue",
+    "            $dn = [string]$props.DisplayName",
+    "            if (-not $dn) { continue }",
+    "            $matched = $false",
+    "            foreach ($pat in $DisplayNamePatterns) { if ($dn -like $pat) { $matched = $true; break } }",
+    "            if (-not $matched) { continue }",
+    "            if ($PublisherPattern -and ([string]$props.Publisher -notlike $PublisherPattern)) { continue }",
+    "            $results += [pscustomobject]@{",
+    "                DisplayName = $dn",
+    "                Sid         = $hive.PSChildName",
+    "                KeyPath     = $sub.PSPath",
+    "                InstallLoc  = [string]$props.InstallLocation",
+    "            }",
+    "        }",
+    "    }",
+    "    return ,$results",
+    "}",
+    "#endregion",
+    ""
+  ];
+}
+
+// ---------------------------------------------------------------- removal script
+function buildRemoveScript(f) {
+  const scriptName = "Remove-" + f.appName;
+  const L = [];
+  L.push(
+    "<#",
+    ".SYNOPSIS",
+    "    Removes all installations of " + f.appName + " (pre-install / remediation cleanup).",
+    "",
+    ".DESCRIPTION",
+    "    Generated by RemoveApp-Script-Generator.html.",
+    "    Pattern based on PatchMyPC Community-Scripts Pre-Install + Monster house style.",
+    "",
+    "    Order of operations:",
+    "      1. Scan HKLM Uninstall (Registry64 + Registry32) for DisplayName matching:",
+    "           " + (f.patterns.join(", ") || f.appName + "*"),
+    (f.publisher ? "         gated on Publisher -like '" + f.publisher + "'" : "         (no publisher gate configured)"),
+    "      2. Stop matching processes ONLY after a removable artifact is confirmed.",
+    "      3. MSI entries  -> msiexec /x {GUID} /qn /norestart REBOOT=ReallySuppress",
+    "                         (exit 0 / 1605 / 1641 / 3010 = success, bounded 10-min wait)",
+    "      4. EXE entries  -> QuietUninstallString preferred, else UninstallString + '" + f.exeArgs + "'",
+    (f.perUser
+      ? "      5. Per-user installs (loaded HKU hives): ARP key + install folder deleted directly."
+      : "      5. Per-user installs: NOT handled (disabled at generation time)."),
+    "      6. Leftover folder cleanup (Test-Path + depth-guarded), ONLY after uninstall.",
+    "      7. Verification re-scan decides the exit code.",
+    "",
+    "    SAFETY: every Remove-Item is Test-Path guarded; folder deletes require >= 3",
+    "    path segments so a blank/malformed path can never delete a drive root.",
+    "    Idempotent: second run on a clean device is a no-op -> exit 0.",
+    "    Win32_Product is never used.",
+    "",
+    "    EXIT CODES:  0 = removed / nothing found     1 = at least one removal failed",
+    "",
+    ".NOTES",
+    "    Author : Endpoint Engineering (Monster Energy) -- generated " + new Date().toISOString().slice(0, 10),
+    "    Target : Windows PowerShell 5.1, SYSTEM context",
+    "    Intune : Run using logged-on credentials = No (SYSTEM)",
+    "             Run script in 64-bit PowerShell = Yes (REQUIRED)",
+    "#>",
+    ""
+  );
+  L.push(...psCommon(f, scriptName));
+  L.push(
+    "#region Bounded process runner",
+    "function Invoke-BoundedProcess {",
+    "    param([string]$FilePath, [string]$Arguments, [int]$TimeoutSec = 600)",
+    "    try {",
+    "        $p = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru -WindowStyle Hidden",
+    "        if (-not $p.WaitForExit($TimeoutSec * 1000)) {",
+    "            Write-Log \"TIMEOUT after ${TimeoutSec}s: $FilePath $Arguments -- killing.\" 'ERROR'",
+    "            try { $p.Kill() } catch {}",
+    "            return -1",
+    "        }",
+    "        return $p.ExitCode",
+    "    } catch {",
+    "        Write-Log \"Failed to start: $FilePath -- $($_.Exception.Message)\" 'ERROR'",
+    "        return -1",
+    "    }",
+    "}",
+    "#endregion",
+    "",
+    "#region Guarded folder delete",
+    "function Remove-FolderSafe {",
+    "    param([string]$Path)",
+    "    if ([string]::IsNullOrWhiteSpace($Path)) { return $true }",
+    "    if (-not (Test-Path -LiteralPath $Path)) { return $true }",
+    "    # Depth guard: refuse anything shallower than X:\\folder\\subfolder",
+    "    $segments = ($Path.TrimEnd('\\') -split '\\\\') | Where-Object { $_ }",
+    "    if ($segments.Count -lt 3) {",
+    "        Write-Log \"REFUSED to delete shallow path: $Path\" 'ERROR'",
+    "        return $false",
+    "    }",
+    "    try {",
+    "        Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop",
+    "        Write-Log \"Deleted folder: $Path\"",
+    "        return $true",
+    "    } catch {",
+    "        Write-Log \"Could not delete ${Path}: $($_.Exception.Message)\" 'WARN'",
+    "        return $false",
+    "    }",
+    "}",
+    "#endregion",
+    "",
+    "Write-Log ('===== " + scriptName + " started (v1.0) =====')",
+    "$failCount = 0",
+    "",
+    "#--- 1. Discover ---------------------------------------------------------",
+    "$machineEntries = @(Get-MachineUninstallEntries)",
+    (f.perUser ? "$userEntries    = @(Get-UserUninstallEntries)" : "$userEntries    = @()"),
+    "Write-Log (\"Found {0} machine entr(ies), {1} per-user entr(ies).\" -f $machineEntries.Count, $userEntries.Count)",
+    "",
+    "if ($machineEntries.Count -eq 0 -and $userEntries.Count -eq 0 -and $LeftoverFolders.Count -eq 0) {",
+    "    Write-Log 'Nothing to remove. Device is clean.'",
+    "    Write-Output \"$AppName not installed - nothing to do\"",
+    "    exit 0",
+    "}",
+    "",
+    "#--- 2. Stop processes (only when something removable was found) ----------",
+    "if (($machineEntries.Count -gt 0 -or $userEntries.Count -gt 0) -and $ProcessNames.Count -gt 0) {",
+    "    foreach ($procName in $ProcessNames) {",
+    "        Get-Process -Name $procName -ErrorAction SilentlyContinue | ForEach-Object {",
+    "            Write-Log (\"Stopping process {0} (PID {1})\" -f $_.ProcessName, $_.Id)",
+    "            try { $_ | Stop-Process -Force -ErrorAction Stop } catch { Write-Log \"Could not stop $($_.ProcessName): $($_.Exception.Message)\" 'WARN' }",
+    "        }",
+    "    }",
+    "    Start-Sleep -Seconds 3",
+    "}",
+    "",
+    "#--- 3+4. Uninstall machine entries ---------------------------------------",
+    "foreach ($entry in $machineEntries) {",
+    "    Write-Log (\"Processing: '{0}' v{1} [{2}]\" -f $entry.DisplayName, $entry.Version, $entry.KeyPath)",
+    "    $guid = $null",
+    "    if ($entry.UninstallStr -match '(\\{[0-9A-Fa-f-]{36}\\})') { $guid = $Matches[1] }",
+    "",
+    "    if ($guid -and $entry.UninstallStr -match 'msiexec') {",
+    "        # MSI",
+    "        $rc = Invoke-BoundedProcess -FilePath 'msiexec.exe' -Arguments \"/x $guid /qn /norestart REBOOT=ReallySuppress\"",
+    "        if ($rc -in 0, 1605, 1641, 3010) {",
+    "            Write-Log \"MSI uninstall OK (exit $rc): $($entry.DisplayName)\"",
+    "        } else {",
+    "            Write-Log \"MSI uninstall FAILED (exit $rc): $($entry.DisplayName)\" 'ERROR'",
+    "            $failCount++",
+    "            continue",
+    "        }",
+    "    }",
+    "    elseif ($entry.QuietUninstall) {",
+    "        # EXE with a vendor-provided quiet string",
+    "        Write-Log \"Running QuietUninstallString: $($entry.QuietUninstall)\"",
+    "        $rc = Invoke-BoundedProcess -FilePath 'cmd.exe' -Arguments \"/c `\"$($entry.QuietUninstall)`\"\"",
+    "        if ($rc -ne 0) { Write-Log \"QuietUninstall exit code: $rc\" 'WARN' }",
+    "    }",
+    "    elseif ($entry.UninstallStr) {",
+    "        # EXE, append configured silent args",
+    "        Write-Log \"Running UninstallString + silent args: $($entry.UninstallStr) $ExeSilentArgs\"",
+    "        $rc = Invoke-BoundedProcess -FilePath 'cmd.exe' -Arguments \"/c `\"$($entry.UninstallStr)`\" $ExeSilentArgs\"",
+    "        if ($rc -ne 0) { Write-Log \"Uninstaller exit code: $rc\" 'WARN' }",
+    "        Start-Sleep -Seconds 10   # NSIS-style uninstallers can self-relaunch and return early",
+    "    }",
+    "    else {",
+    "        Write-Log \"No UninstallString on '$($entry.DisplayName)' -- cannot uninstall.\" 'ERROR'",
+    "        $failCount++",
+    "    }",
+    "}",
+    ""
+  );
+  if (f.perUser) {
+    L.push(
+      "#--- 5. Per-user entries (delete ARP key + folder directly) ----------------",
+      "foreach ($ue in $userEntries) {",
+      "    Write-Log (\"Per-user removal for SID {0}: '{1}'\" -f $ue.Sid, $ue.DisplayName)",
+      "    if ($ue.InstallLoc) {",
+      "        if (-not (Remove-FolderSafe -Path $ue.InstallLoc)) { $failCount++ }",
+      "    }",
+      "    try {",
+      "        Remove-Item -LiteralPath $ue.KeyPath -Recurse -Force -ErrorAction Stop",
+      "        Write-Log \"Deleted per-user ARP key: $($ue.KeyPath)\"",
+      "    } catch {",
+      "        Write-Log \"Could not delete per-user ARP key: $($_.Exception.Message)\" 'ERROR'",
+      "        $failCount++",
+      "    }",
+      "}",
+      ""
+    );
+  }
+  L.push(
+    "#--- 6. Leftover folders ----------------------------------------------------",
+    "foreach ($folder in $LeftoverFolders) {",
+    "    if (-not (Remove-FolderSafe -Path $folder)) { $failCount++ }",
+    "}",
+    "",
+    "#--- 7. Verify ----------------------------------------------------------------",
+    "Start-Sleep -Seconds 5",
+    "$residual = @(Get-MachineUninstallEntries)",
+    (f.perUser ? "$residual += @(Get-UserUninstallEntries)" : ""),
+    "",
+    "if ($failCount -eq 0 -and $residual.Count -eq 0) {",
+    "    Write-Log '===== SUCCESS: all matching installs removed. ====='",
+    "    Write-Output \"$AppName removed successfully\"",
+    "    exit 0",
+    "} else {",
+    "    $names = ($residual | ForEach-Object { $_.DisplayName }) -join '; '",
+    "    Write-Log (\"===== FAILED: {0} failure(s), {1} residual entr(ies): {2} =====\" -f $failCount, $residual.Count, $names) 'ERROR'",
+    "    Write-Output \"$AppName removal failed - Failures: $failCount, Residual: $($residual.Count)\"",
+    "    exit 1",
+    "}"
+  );
+  return L.filter(x => x !== "").map(x => x).join("\r\n").replace(/\r\n\r\n\r\n+/g, "\r\n\r\n");
+}
+
+// ---------------------------------------------------------------- detect script
+function buildDetectScript(f) {
+  const scriptName = "Detect-" + f.appName;
+  const L = [];
+  L.push(
+    "<#",
+    ".SYNOPSIS",
+    "    Detects any installation of " + f.appName + " (Intune Remediation DETECTION script).",
+    "",
+    ".DESCRIPTION",
+    "    Generated by RemoveApp-Script-Generator.html. Companion to Remove-" + f.appName + ".ps1.",
+    "    Scans HKLM Uninstall (64+32)" + (f.perUser ? " and loaded HKU hives" : "") + " for DisplayName matching:",
+    "        " + (f.patterns.join(", ") || f.appName + "*"),
+    "",
+    "    EXIT CODES:  0 = not found (compliant)     1 = found (run remediation)",
+    "",
+    ".NOTES",
+    "    Author : Endpoint Engineering (Monster Energy) -- generated " + new Date().toISOString().slice(0, 10),
+    "    Target : Windows PowerShell 5.1, SYSTEM, 64-bit PowerShell = Yes",
+    "#>",
+    ""
+  );
+  L.push(...psCommon(f, scriptName));
+  L.push(
+    "Write-Log ('===== " + scriptName + " started =====')",
+    "$found = @(Get-MachineUninstallEntries)",
+    (f.perUser ? "$found += @(Get-UserUninstallEntries)" : ""),
+    "",
+    "if ($found.Count -gt 0) {",
+    "    $names = ($found | ForEach-Object { $_.DisplayName }) -join '; '",
+    "    Write-Log \"DETECTED $($found.Count) install(s): $names\"",
+    "    Write-Output \"$AppName detected: $names\"",
+    "    exit 1",
+    "} else {",
+    "    Write-Log 'Not detected. Compliant.'",
+    "    Write-Output \"$AppName not installed\"",
+    "    exit 0",
+    "}"
+  );
+  return L.filter(x => x !== "").join("\r\n");
+}
+
+// ---------------------------------------------------------------- UI wiring
+let lastRemove = "", lastDetect = "", lastApp = "ExampleApp";
+
+function generate() {
+  const f = readForm();
+  lastApp = f.appName;
+  lastRemove = buildRemoveScript(f);
+  lastDetect = f.detectToo ? buildDetectScript(f) : "";
+  document.getElementById("fname").textContent = "Remove-" + f.appName + ".ps1" + (f.detectToo ? "  +  Detect-" + f.appName + ".ps1" : "");
+  document.getElementById("out").textContent = lastRemove + (lastDetect ? "\r\n\r\n" + "#".repeat(78) + "\r\n# ---- Detect-" + f.appName + ".ps1 (separate file) ----\r\n" + "#".repeat(78) + "\r\n\r\n" + lastDetect : "");
+  document.getElementById("btnDlDetect").style.display = f.detectToo ? "" : "none";
+}
+
+function download(name, content) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1400);
+}
+
+document.getElementById("btnGen").addEventListener("click", generate);
+document.getElementById("btnCopy").addEventListener("click", () => {
+  if (!lastRemove) generate();
+  navigator.clipboard.writeText(lastRemove).then(() => toast("Removal script copied"));
+});
+document.getElementById("btnDl").addEventListener("click", () => {
+  if (!lastRemove) generate();
+  download("Remove-" + lastApp + ".ps1", lastRemove);
+});
+document.getElementById("btnDlDetect").addEventListener("click", () => {
+  if (!lastDetect) generate();
+  if (lastDetect) download("Detect-" + lastApp + ".ps1", lastDetect);
+});
+
+generate();
+</script>
+</body>
+</html>
