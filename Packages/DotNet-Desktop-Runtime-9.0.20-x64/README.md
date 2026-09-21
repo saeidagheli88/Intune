@@ -81,6 +81,10 @@ Keep the default return codes, including:
   3010 = Soft reboot
   1618 = Retry
 
+NOTE: Intune runs the uninstall command only when the app is assigned with
+intent Uninstall, or when removal is triggered from the Company Portal.
+Use the Uninstall.ps1 packaged with this app; it removes 9.0.20 x64 only.
+
 STEP 5 - REQUIREMENTS
 ---------------------
 Operating system architecture:
@@ -111,6 +115,11 @@ Detection requires all of the following:
   - No Microsoft.WindowsDesktop.App 9.0.x x64 below 9.0.20 remains
   - No Microsoft.NETCore.App 9.0.x x64 below 9.0.20 remains
 
+NOTE: All three .NET Desktop Runtime packages ship a file named Detect.ps1,
+and all three ship a file named Uninstall.ps1. The names are shared but each
+copy checks and removes a different version and architecture. Upload the
+Detect.ps1 from THIS folder to this app, not a copy from another package.
+
 STEP 7 - ASSIGNMENT
 -------------------
 First assign as Required to a small test DEVICE group. Do not deploy to All
@@ -129,6 +138,24 @@ Or inspect x64 runtimes directly:
 Expected required lines:
   Microsoft.NETCore.App 9.0.20 [C:\Program Files\dotnet\shared\Microsoft.NETCore.App]
   Microsoft.WindowsDesktop.App 9.0.20 [C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App]
+
+LIST EVERY INSTALLED .NET RUNTIME AND SDK
+-----------------------------------------
+This package targets one major version and one architecture. To see everything
+installed on a device, open PowerShell and query both hosts:
+
+  # x64 runtimes
+  & "$env:SystemDrive\Program Files\dotnet\dotnet.exe" --list-runtimes
+
+  # x86 runtimes
+  & "${env:ProgramFiles(x86)}\dotnet\dotnet.exe" --list-runtimes
+
+To list installed SDKs as well:
+
+  & "$env:SystemDrive\Program Files\dotnet\dotnet.exe" --list-sdks
+  & "${env:ProgramFiles(x86)}\dotnet\dotnet.exe" --list-sdks
+
+If a path does not exist, that architecture's .NET host is not installed.
 
 INSTALL LOG
 -----------
