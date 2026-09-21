@@ -45,7 +45,9 @@ Application packages deployed via Intune Win32 App or DMG/PKG policies.
 
 | Name | Platform | Description |
 |---|---|---|
-| Coming soon | | |
+| [DotNet-Desktop-Runtime-10.0.12-x64](./Packages/DotNet-Desktop-Runtime-10.0.12-x64/) | Windows | Installs .NET Desktop Runtime 10.0.12 x64 and removes older 10.0.x x64 patches |
+| [DotNet-Desktop-Runtime-9.0.20-x64](./Packages/DotNet-Desktop-Runtime-9.0.20-x64/) | Windows | Installs .NET Desktop Runtime 9.0.20 x64 and removes older 9.0.x x64 patches |
+| [DotNet-Desktop-Runtime-8.0.31-x86](./Packages/DotNet-Desktop-Runtime-8.0.31-x86/) | Windows | Installs .NET Desktop Runtime 8.0.31 x86 and removes older 8.0.x x86 patches |
 
 ---
 
